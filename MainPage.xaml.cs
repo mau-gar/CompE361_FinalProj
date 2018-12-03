@@ -41,7 +41,7 @@ namespace UWPtest1
         public static List<float> enemyXPOS = new List<float>();
         public static List<float> enemyYPOS = new List<float>();
         public static List<int> enemyImageLL = new List<int>();
-        public static List<string> enemyDirection = new List<string>();
+        public static List<int> enemyDirection = new List<int>();
 
         //Random Generator 
         public Random enemyImageRand = new Random();//Randomly Select which image(enemy type)
@@ -69,41 +69,35 @@ namespace UWPtest1
             enemyTimer.Interval = new TimeSpan(0, 0, 0, 0, enemyGenRand.Next(300,3000));//enemy attack time between 300 and 3000 ms
         }
 
-        //Spawn location for enemies-TODO: Makes them spawn off screen and at 'four corners'
         private void EnemyTimer_Tick(object sender, object e)
         {   
             int enemySelect = enemyImageRand.Next(1,3);//Cycles between enemies, in this case two enemies
             Random startingCorner = new Random();//Randomly Select Which Corner to Start
             int corner = startingCorner.Next(1,5);
-            int start;
 
             if (corner == 1)//Top
             {
-                start = enemyStartPos.Next(0, (int)bounds.Width);
-                enemyXPOS.Add(start);
-                enemyYPOS.Add(50 * scaledWidth);
+                enemyXPOS.Add((int)bounds.Width/2);
+                enemyYPOS.Add(25 * scaledWidth);//Start at -50 so enemies 'move' into view
             }
-
             else if (corner == 2)//Left
             {
-                start = enemyStartPos.Next(0, (int)bounds.Height);
-                enemyYPOS.Add(start);
-                enemyXPOS.Add(50 * scaledWidth);
+                enemyYPOS.Add((int)bounds.Height/2);
+                enemyXPOS.Add(25 * scaledWidth);//Start at -50 so enemies 'move' into view
             }
-
-            else if(corner == 3)//Right
+            else if (corner == 3)//Right
             {
-
+                enemyYPOS.Add((int)bounds.Height/2);
+                enemyXPOS.Add(1220 * scaledWidth);//Start at 1330 so enemies 'move' into view
             }
-
             else if(corner == 4)//Bottom
             {
-
+                enemyXPOS.Add((int)bounds.Width/2);
+                enemyYPOS.Add(600 * scaledWidth);//Start at 690 so enemies 'move' into view
             }
-            //enemyXPOS.Add(50 * scaledWidth);//This will make them spawn in the upper left 
-            //enemyYPOS.Add(119 * scaledHeight);
+            enemyDirection.Add(corner);//Track enemy spawn location to determine movement(vertical or horizontal)
             enemyImageLL.Add(enemySelect);//Add selected enemy to LL
-            enemyTimer.Interval = new TimeSpan(0,0,0,0,enemyGenRand.Next(300,700));
+            enemyTimer.Interval = new TimeSpan(0,0,0,0,enemyGenRand.Next(300,1700));//Spawn interval (1700)
         }
 
         private void RoundTimer_Tick(object sender, object e)
@@ -151,15 +145,33 @@ namespace UWPtest1
                 //Drawing Enemies first so projectiles superimpose the enemy images  
                 for (int j = 0; j < enemyXPOS.Count; j++)
                 {
+                    //Enemy Image Select
                     if (enemyImageLL[j] == 1)
                     {
                         enemyImage = enemy1;
                     }
-                    if (enemyImageLL[j] == 2)
+                    else if (enemyImageLL[j] == 2)
                     {
                         enemyImage = enemy2;
                     }
-                    //enemyXPOS[j] += 3;//Enemy Movement 
+                    
+                    //Enemy Direction Select
+                    if(enemyDirection[j] == 1)//Start top, move down  
+                    {
+                        enemyYPOS[j] += 1;
+                    }
+                    else if(enemyDirection[j] == 2)//Start left, move right
+                    {
+                        enemyXPOS[j] += 2;
+                    }
+                    else if(enemyDirection [j] == 3)//Start right, move left
+                    {
+                        enemyXPOS[j] -= 2;
+                    }
+                    else if(enemyDirection [j] == 4)//Start down, move up
+                    {
+                        enemyYPOS[j] -= 1;
+                    }
                     args.DrawingSession.DrawImage(Scaling.Img(enemyImage), enemyXPOS[j], enemyYPOS[j]);
                 }
                 //Display photon
