@@ -9,17 +9,19 @@ using Windows.UI.Xaml;
 using Windows.UI.Core;
 using UWPtest1.Class;
 using System.Collections.Generic;
+using Windows.UI;
 
 namespace UWPtest1
 {
     public sealed partial class MainPage : Page
     {
-        public static CanvasBitmap BG, startScreen, levelScreen, scoreScreen, photon, enemy1, enemy2, enemyImage, tower;
+        public static CanvasBitmap BG, startScreen, levelScreen, scoreScreen, photon, enemy1, enemy2, enemyImage, tower, blood;
         public static Rect bounds = ApplicationView.GetForCurrentView().VisibleBounds;
         public static float designWidth = 1280;
         public static float designHeight = 720;
         public static float scaledWidth, scaledHeight;//Used to auto scale image when changing screen resolution 
         public static int gameState = 0;//startScreen set 0
+        public static float myScore;
 
         /*
          * centerX and centerY define the position where the photons originate(origin)  
@@ -27,13 +29,17 @@ namespace UWPtest1
          */ 
         public static float pointX, pointY, centerX, centerY;
 
+        //Collision/Death Variable 
+        public static float deathAnimationX, deathAnimationY;//Death Animation
+        public static int deathAniFrames = 60;//Duration(in frames) of the death animation - 60 frames @ 60FPS = 1 sec animation 
+
         /// Variables for Timers 
         public static int countDown = 60;
         public static bool roundEnded = false;
         public static DispatcherTimer roundTimer = new DispatcherTimer();
         public static DispatcherTimer enemyTimer = new DispatcherTimer();//Enemy timer
 
-        //photon(Projectile)
+        //Photon(Projectile)
         public static List<float> photonXPOS = new List<float>();//LL containing xcoordinate of tapped photon 
         public static List<float> photonYPOS = new List<float>();
 
@@ -78,22 +84,22 @@ namespace UWPtest1
             if (corner == 1)//Top
             {
                 enemyXPOS.Add((int)bounds.Width/2);
-                enemyYPOS.Add(25 * scaledWidth);//Start at -50 so enemies 'move' into view
+                enemyYPOS.Add(-25 * scaledHeight);//Start at -25 so enemies 'move' into view
             }
             else if (corner == 2)//Left
             {
                 enemyYPOS.Add((int)bounds.Height/2);
-                enemyXPOS.Add(25 * scaledWidth);//Start at -50 so enemies 'move' into view
+                enemyXPOS.Add(-50 * scaledWidth);//Start at -50 so enemies 'move' into view
             }
             else if (corner == 3)//Right
             {
                 enemyYPOS.Add((int)bounds.Height/2);
-                enemyXPOS.Add(1220 * scaledWidth);//Start at 1330 so enemies 'move' into view
+                enemyXPOS.Add((designWidth + 50) * scaledWidth);//Start at designWidth + 50 so enemies 'move' into view
             }
             else if(corner == 4)//Bottom
             {
                 enemyXPOS.Add((int)bounds.Width/2);
-                enemyYPOS.Add(600 * scaledWidth);//Start at 690 so enemies 'move' into view
+                enemyYPOS.Add((designHeight + 25) * scaledHeight);//Start at designHeight +25 so enemies 'move' into view
             }
             enemyDirection.Add(corner);//Track enemy spawn location to determine movement(vertical or horizontal)
             enemyImageLL.Add(enemySelect);//Add selected enemy to LL
@@ -133,18 +139,41 @@ namespace UWPtest1
             enemy1 = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/enemy.png"));
             enemy2 = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/enemy2.png"));
             tower = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/tower.jpg"));
+            blood = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/blood.png"));
         }
 
         private void GameCanvas_Draw(Microsoft.Graphics.Canvas.UI.Xaml.CanvasControl sender, Microsoft.Graphics.Canvas.UI.Xaml.CanvasDrawEventArgs args)
         {
             GSM.gsm(); //Call GSM on first draw
             args.DrawingSession.DrawImage(Scaling.Img(BG));//Generate Background upon method call
-            if (gameState > 0)
+            if (gameState > 0)//If we are playing the game
             {
                 args.DrawingSession.DrawImage(Scaling.Img(tower),(float)bounds.Width/2 - (75 * scaledWidth),(float)bounds.Height/2 - (75 * scaledHeight));
-                //Drawing Enemies first so projectiles superimpose the enemy images  
+                args.DrawingSession.DrawText("Current Score " + myScore.ToString(), (float)bounds.Width/2, 10, Color.FromArgb(255,255,255,255));//Draw score
+                //Draw Death animation first so death animation superimposes the enemy image
+
+                if ((deathAnimationX > 0) && (deathAnimationY > 0) && (deathAniFrames > 0))//If we have a 'dead enemy' draw death animation
+                {
+                    args.DrawingSession.DrawImage(Scaling.Img(blood), deathAnimationX, deathAnimationY);
+                    deathAniFrames -= 1;
+                }
+                else//Reset death animaiton variables 
+                {
+                    deathAniFrames = 60;
+                    deathAnimationX = 0;
+                    deathAnimationY = 0;
+                }
+
+                //Drawing Enemies second so projectiles superimpose the enemy images  
                 for (int j = 0; j < enemyXPOS.Count; j++)
                 {
+                    //If an enemy makes it to the tower GAME OVER
+                    if ((centerX >= enemyXPOS[j]) && (centerX <= (enemyXPOS[j] + (100 * scaledWidth))) && (centerY >= enemyYPOS[j]) && (centerY <= (enemyYPOS[j] + (75 * scaledHeight))))
+                    {
+                        roundEnded = true;
+                        break;
+                    }
+
                     //Enemy Image Select
                     if (enemyImageLL[j] == 1)
                     {
@@ -174,6 +203,7 @@ namespace UWPtest1
                     }
                     args.DrawingSession.DrawImage(Scaling.Img(enemyImage), enemyXPOS[j], enemyYPOS[j]);
                 }
+
                 //Display photon
                 for (int i = 0; i < photonXPOS.Count; i++)
                 {
@@ -182,6 +212,34 @@ namespace UWPtest1
                     pointY = (centerY + (photonYPOS[i] - centerY) * percent[i]);
                     args.DrawingSession.DrawImage(Scaling.Img(photon), pointX - (19 * scaledWidth), pointY - (20 * scaledHeight));//19 and 20 come from half of the width and height of the photon.jpg
                     percent[i] += (0.1f * scaledHeight);
+
+                    //Every time a projectile is fired check for collision 
+                    for(int j = 0; j < enemyXPOS.Count; j++)//For each projectile check collision cooridantes of every enemy 
+                    {
+                        //Note: 100 and 95 in the following if statement are relative to the blood spatter dimension image
+                        //Compare current projectile x/y coordinate with every enemy x/y position to check for a collision 
+                        if((pointX >= enemyXPOS[j]) && (pointX <= (enemyXPOS[j] + (100 * scaledWidth))) && (pointY >= enemyYPOS[j]) && (pointY <= (enemyYPOS[j] + (95 * scaledHeight))))
+                        {
+                            //Update death animation locaiton for 'blood splatter'
+                            deathAnimationX = pointX - (50 * scaledWidth);
+                            deathAnimationY = pointY - (47 * scaledHeight);
+
+                            //Remove the enemy off screen
+                            enemyXPOS.RemoveAt(j);
+                            enemyYPOS.RemoveAt(j);
+                            enemyImageLL.RemoveAt(j);
+                            enemyDirection.RemoveAt(j);
+
+                            //Remove the current projectile off screen
+                            photonXPOS.RemoveAt(i);
+                            photonYPOS.RemoveAt(i);
+                            percent.RemoveAt(i);
+
+                            myScore += 100;
+                            break;
+                        }
+                    }
+
                     if (pointY < 0f)//If photon trails off screen, remove the photon 
                     {
                         photonXPOS.RemoveAt(i);
@@ -206,6 +264,7 @@ namespace UWPtest1
                 enemyXPOS.Clear();
                 enemyYPOS.Clear();
                 enemyImageLL.Clear();
+                enemyDirection.Clear();
             }
             else
             {
