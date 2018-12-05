@@ -10,8 +10,8 @@ namespace UWPtest1
     {
         public static void gsm()
         {
-            if (MainPage.roundEnded == true)
-            {
+            if (MainPage.roundEnded == true && (MainPage.gameState == 1))
+            { 
                 MainPage.BG = MainPage.scoreScreen;
             }
             else
@@ -23,6 +23,10 @@ namespace UWPtest1
                 else if (MainPage.gameState == 1)
                 {
                     MainPage.BG = MainPage.levelScreen;
+                }
+                else if(MainPage.gameState == 2)
+                {
+                    MainPage.BG = MainPage.pauseScreen;
                 }
             }
 
