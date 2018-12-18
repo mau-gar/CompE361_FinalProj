@@ -10,6 +10,7 @@ using Windows.UI.Core;
 using UWPtest1.Class;
 using System.Collections.Generic;
 using Windows.UI;
+using Microsoft.Graphics.Canvas.Text;
 
 namespace UWPtest1
 {
@@ -21,8 +22,9 @@ namespace UWPtest1
         public static float designHeight = 1080;
         public static float scaledWidth, scaledHeight;//Used to auto scale image when changing screen resolution 
         public static int gameState = 0;//startScreen set 0
-        public static float myScore;
-        public static bool continueFlag = false;
+        public static float myScore, myLevel = 1;
+        public static float accuracy, protonsFired, protonsHit;
+        public static bool levelUp = false;
 
         /*
          * centerX and centerY define the position where the photons originate(origin)  
@@ -49,9 +51,6 @@ namespace UWPtest1
         public static List<float> enemyYPOS = new List<float>();
         public static List<int> enemyImageLL = new List<int>();
         public static List<int> enemyDirection = new List<int>();
-        public static float[] enemyXPOSCopy = new float[1000];
-        public static float[] enemyYPOSCopy = new float[1000];
-
 
         //Random Generator 
         public Random enemyImageRand = new Random();//Randomly Select which image(enemy type)
@@ -76,7 +75,7 @@ namespace UWPtest1
             roundTimer.Tick += RoundTimer_Tick;
             roundTimer.Interval = new TimeSpan(0, 0, 1);
             enemyTimer.Tick += EnemyTimer_Tick;
-            enemyTimer.Interval = new TimeSpan(0, 0, 0, 0, enemyGenRand.Next(300, 3000));//enemy attack time between 300 and 3000 ms
+            enemyTimer.Interval = new TimeSpan(0, 0, 0, 0, enemyGenRand.Next(300, 3005-(int)myLevel*5));//enemy attack time between 300 a level-varying time for increased frequency the futher you go
         }
 
         private void EnemyTimer_Tick(object sender, object e)
@@ -92,17 +91,17 @@ namespace UWPtest1
             }
             else if (corner == 2)//Left
             {
-                enemyYPOS.Add((int)bounds.Height / 2);
+                enemyYPOS.Add((int)bounds.Height / 2 - 30);
                 enemyXPOS.Add(-50 * scaledWidth);//Start at -50 so enemies 'move' into view
             }
             else if (corner == 3)//Right
             {
-                enemyYPOS.Add((int)bounds.Height / 2);
+                enemyYPOS.Add((int)bounds.Height / 2 - 15);
                 enemyXPOS.Add((designWidth + 50) * scaledWidth);//Start at designWidth + 50 so enemies 'move' into view
             }
             else if (corner == 4)//Bottom
             {
-                enemyXPOS.Add((int)bounds.Width / 2);
+                enemyXPOS.Add((int)bounds.Width / 2 - 40);
                 enemyYPOS.Add((designHeight + 25) * scaledHeight);//Start at designHeight +25 so enemies 'move' into view
             }
             enemyDirection.Add(corner);//Track enemy spawn location to determine movement(vertical or horizontal)
@@ -113,11 +112,15 @@ namespace UWPtest1
         private void RoundTimer_Tick(object sender, object e)
         {
             countDown -= 1;//Ticks down by one second 
-            if (countDown < 1)//Once count == 0, update
+            
+            if (countDown % 20 == 0)
             {
-                roundTimer.Stop();
-                roundEnded = true;
+
+                levelUp = true;
+                myLevel++;
             }
+            else
+                levelUp = false;
         }
 
         private void Current_SizeChanged(object sender, WindowSizeChangedEventArgs e)
@@ -136,14 +139,13 @@ namespace UWPtest1
 
         async Task CreateResourcesAsync(CanvasControl sender)//Images in the game
         {
-            startScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/Yoda.png"));
-            levelScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/ConceptGrid.png"));
-            pauseScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/PauseConcept.png"));
-            scoreScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/Droideka.jpg"));
-            photon = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/photon.jpg"));
-            enemy1 = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/enemy.png"));
-            enemy2 = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/enemy2.png"));
-            tower = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/tower.jpg"));
+            startScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/Title.png"));
+            levelScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/Map.png"));
+            pauseScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/PauseScreen.png"));
+            scoreScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/GameOver.png"));
+            photon = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/arrow.png"));
+            enemy1 = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/enemyT.png"));
+            enemy2 = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/enemyH.png"));
             blood = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/blood.png"));
         }
 
@@ -153,13 +155,29 @@ namespace UWPtest1
             args.DrawingSession.DrawImage(Scaling.Img(BG));//Generate Background upon method call
             if (gameState == 1)//If we are playing the game
             {
-                args.DrawingSession.DrawImage(Scaling.Img(tower), (float)bounds.Width / 2 - (75 * scaledWidth), (float)bounds.Height / 2 - (75 * scaledHeight));
-                args.DrawingSession.DrawText("Current Score " + myScore.ToString(), (float)bounds.Width / 2, 10, Color.FromArgb(255, 255, 255, 255));//Draw score
-                //Draw Death animation first so death animation superimposes the enemy image
+                CanvasTextLayout textScore = new CanvasTextLayout(args.DrawingSession, myScore.ToString(), new CanvasTextFormat() { FontFamily = "", FontSize = 40 * scaledHeight, WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
+                CanvasTextLayout textLevel = new CanvasTextLayout(args.DrawingSession, "Level " + myLevel.ToString() + " Speed Increasing!", new CanvasTextFormat() { FontFamily = "Times New Roman", FontSize = 60 * scaledHeight, WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
+                args.DrawingSession.DrawTextLayout(textScore, (150 * scaledWidth), (50 * scaledHeight), Color.FromArgb(255, 255, 255, 255));//Draw score
 
+                if (levelUp) // Level Up Notifier
+                {
+                    for(int i =0; i < 3; i++)
+                    args.DrawingSession.DrawTextLayout(textLevel, centerX - 250, centerY - 100, Color.FromArgb(255, 30, 25, 150));//Draw Level Up Sequence
+                }
+
+                if (roundEnded == true) //Results Screen Drawing Events
+                {
+                    accuracy = protonsHit / protonsFired * 100;
+                    CanvasTextLayout textAccuracy = new CanvasTextLayout(args.DrawingSession, "Accuracy: " + accuracy.ToString() + "% ", new CanvasTextFormat() { FontSize = 40 * scaledHeight, WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
+                    CanvasTextLayout textFinalScore = new CanvasTextLayout(args.DrawingSession, "Final Score: " + myScore.ToString(), new CanvasTextFormat() { FontFamily = "", FontSize = 40 * scaledHeight, WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
+                    args.DrawingSession.DrawTextLayout(textFinalScore, (790 * scaledWidth), (645 * scaledHeight), Color.FromArgb(255, 150, 5, 5));
+                    args.DrawingSession.DrawTextLayout(textAccuracy, (790 * scaledWidth), (685 * scaledHeight), Color.FromArgb(255, 150, 5, 5));
+                }
+
+                //Draw Death animation first so death animation superimposes the enemy image
                 if ((deathAnimationX > 0) && (deathAnimationY > 0) && (deathAniFrames > 0))//If we have a 'dead enemy' draw death animation
                 {
-                    args.DrawingSession.DrawImage(Scaling.Img(blood), deathAnimationX, deathAnimationY);
+                    args.DrawingSession.DrawImage(Scaling.Img(blood), deathAnimationX - 80, deathAnimationY - 80);
                     deathAniFrames -= 1;
                 }
                 else//Reset death animaiton variables 
@@ -175,8 +193,8 @@ namespace UWPtest1
                     //If an enemy makes it to the tower GAME OVER
                     if ((centerX >= enemyXPOS[j]) && (centerX <= (enemyXPOS[j] + (100 * scaledWidth))) && (centerY >= enemyYPOS[j]) && (centerY <= (enemyYPOS[j] + (75 * scaledHeight))))
                     {
-                        continueFlag = false;
                         roundEnded = true;
+                        countDown = 0;
                         break;
                     }
 
@@ -193,19 +211,20 @@ namespace UWPtest1
                     //Enemy Direction Select
                     if (enemyDirection[j] == 1)//Start top, move down  
                     {
-                        enemyYPOS[j] += 1; 
+                        enemyYPOS[j] += 1 + (float)(myLevel * 0.1);
                     }
                     else if (enemyDirection[j] == 2)//Start left, move right
                     {
-                        enemyXPOS[j] += 2;
+                        enemyXPOS[j] += 2 + (float)(myLevel * 0.2);
                     }
                     else if (enemyDirection[j] == 3)//Start right, move left
                     {
-                        enemyXPOS[j] -= 2;
+                        enemyXPOS[j] -= 2 + (float)(myLevel * 0.2);
                     }
+
                     else if (enemyDirection[j] == 4)//Start down, move up
                     {
-                        enemyYPOS[j] -= 1;
+                        enemyYPOS[j] -= 1 + (float)(myLevel * 0.1);
                     }
                     args.DrawingSession.DrawImage(Scaling.Img(enemyImage), enemyXPOS[j], enemyYPOS[j]);
                 }
@@ -217,6 +236,7 @@ namespace UWPtest1
                     pointX = (centerX + (photonXPOS[i] - centerX) * percent[i]);
                     pointY = (centerY + (photonYPOS[i] - centerY) * percent[i]);
                     args.DrawingSession.DrawImage(Scaling.Img(photon), pointX - (19 * scaledWidth), pointY - (20 * scaledHeight));//19 and 20 come from half of the width and height of the photon.jpg
+
                     percent[i] += (0.1f * scaledHeight);
 
                     //Every time a projectile is fired check for collision 
@@ -242,6 +262,7 @@ namespace UWPtest1
                             percent.RemoveAt(i);
 
                             myScore += 100;
+                            protonsHit++;
                             break;
                         }
                     }
@@ -254,6 +275,7 @@ namespace UWPtest1
                     }
                 }
             }
+          
             GameCanvas.Invalidate();
         }
 
@@ -261,63 +283,72 @@ namespace UWPtest1
         {
             var tapPos = e.GetPosition(GameCanvas);
 
-
-            if (roundEnded == true)//When timer ends game state returns to main menu when tapped
+            if (gameState == 0) //Menu
             {
-                gameState = 0;
                 roundEnded = false;
-                countDown = int.MaxValue;
-
-                //Stop and Clear Enemy Timer and Enemies 
-                enemyTimer.Stop();
-                enemyXPOS.Clear();
-                enemyYPOS.Clear();
-                enemyImageLL.Clear();
+                gameState = 1;
+                roundTimer.Start();//At levelScreen begin timer
+                enemyTimer.Start();
             }
-            else
+            else if (gameState == 1)//Play Level Screen
             {
-                if (gameState == 0) //Menu
-                {
-                    gameState = 1;
-                    roundTimer.Start();//At levelScreen begin timer
-                    enemyTimer.Start();
+                if (roundEnded == true) // Game Over, Tower was attacked
+                { 
+                    gameState = 0;
+
+                    myScore = 0;
+                    myLevel = 1;
+                    protonsFired = 0;
+                    protonsHit = 0;
+
+                    enemyTimer.Stop();
+                    enemyXPOS.Clear();
+                    enemyYPOS.Clear();
+                    enemyDirection.Clear();
+                    enemyImageLL.Clear();
                 }
-                else if (gameState == 1)//Play Level Screen
+                   
+               //Pause Menu Logic
+                if ((float)tapPos.X > (1770 * scaledWidth) && (float)tapPos.X < (1878 * scaledWidth) && (float)tapPos.Y > (54 * scaledHeight) && (float)tapPos.Y < (162 * scaledHeight))
                 {
+                    gameState = 2;
 
-                    if ((float)tapPos.X > (1770 * scaledWidth) && (float)tapPos.X < (1878 * scaledWidth) && (float)tapPos.Y > (54 * scaledHeight) && (float)tapPos.Y < (162 * scaledHeight)) //To-Do Re-Scale Bounds?
-                    {
-                        gameState = 2;
-
-                        enemyXPOS.CopyTo(enemyXPOSCopy);
-                        enemyYPOS.CopyTo(enemyYPOSCopy);
-                        enemyXPOS.Clear();
-                        enemyYPOS.Clear();
-                        enemyTimer.Stop();
-                        enemyImageLL.Clear();
-                    }
+                    roundEnded = true;
+                    enemyXPOS.Clear();
+                    enemyYPOS.Clear();
+                    enemyTimer.Stop();
+                    enemyDirection.Clear();
+                    enemyImageLL.Clear();
+                }
                     //When screen is tapped add X/Y position of tap to photon list
                     photonXPOS.Add((float)e.GetPosition(GameCanvas).X);
                     photonYPOS.Add((float)e.GetPosition(GameCanvas).Y);
                     percent.Add(0f);//Start at 0%
-                }
-                else if (gameState == 2) // Pause Screen
-                {
-                    roundEnded = true;
+                    protonsFired++;
+                    
+            }
+            else if (gameState == 2) // Pause Screen
+            {
+                    
                     if ((float)tapPos.X > (744 * scaledWidth) && (float)tapPos.X < (1176 * scaledWidth) && (float)tapPos.Y > (324 * scaledHeight) && (float)tapPos.Y < (396 * scaledHeight)) //Continue
                     {
                         gameState = 1;
-                        roundEnded = false;
-                        continueFlag = false;
+
+                        countDown = int.MaxValue - 8;
+                        roundTimer.Start();
                         enemyTimer.Start();
                     }
 
                     if ((float)tapPos.X > (744 * scaledWidth) && (float)tapPos.X < (1176 * scaledWidth) && (float)tapPos.Y > (468 * scaledHeight) && (float)tapPos.Y < (540 * scaledHeight)) //Reset
                     {
                         gameState = 1;
-                        roundEnded = false;
-                        continueFlag = false;
+ 
                         myScore = 0;
+                        myLevel = 1;
+                        protonsFired = 0;
+                        protonsHit = 0;
+                        countDown = int.MaxValue - 8;
+                        roundTimer.Start();
                         enemyTimer.Start();
                     }
 
@@ -325,8 +356,8 @@ namespace UWPtest1
                     {
                         gameState = 0;
                     }
-                }
             }
+          
         }
     }
 }
