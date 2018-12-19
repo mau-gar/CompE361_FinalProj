@@ -78,7 +78,7 @@ namespace UWPtest1
             roundTimer.Tick += RoundTimer_Tick;
             roundTimer.Interval = new TimeSpan(0, 0, 1);
             enemyTimer.Tick += EnemyTimer_Tick;
-            enemyTimer.Interval = new TimeSpan(0, 0, 0, 0, enemyGenRand.Next(300, 3005-(int)myLevel*5));//enemy attack time between 300 a level-varying time for increased frequency the futher you go
+            enemyTimer.Interval = new TimeSpan(0, 0, 0, 0, enemyGenRand.Next(300, 3005-(int)myLevel*5));//enemy attack time between 300ms a level-varying time for increased frequency the futher you go
         }
 
         /// <summary>
@@ -184,14 +184,16 @@ namespace UWPtest1
             args.DrawingSession.DrawImage(Scaling.Img(BG));//Generate Background upon method call
             if (gameState == 1)//If we are playing the game
             {
-                CanvasTextLayout textScore = new CanvasTextLayout(args.DrawingSession, myScore.ToString(), new CanvasTextFormat() { FontFamily = "", FontSize = 40 * scaledHeight, WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
-                CanvasTextLayout textLevel = new CanvasTextLayout(args.DrawingSession, "Level " + myLevel.ToString() + " Speed Increasing!", new CanvasTextFormat() { FontFamily = "Times New Roman", FontSize = 60 * scaledHeight, WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
-                args.DrawingSession.DrawTextLayout(textScore, (150 * scaledWidth), (50 * scaledHeight), Color.FromArgb(255, 255, 255, 255));//Draw score
+                CanvasTextLayout textScore = new CanvasTextLayout(args.DrawingSession, myScore.ToString(), new CanvasTextFormat() { FontFamily = "", FontSize = (40 * scaledHeight), WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
+                CanvasTextLayout textLevel = new CanvasTextLayout(args.DrawingSession, myLevel.ToString(), new CanvasTextFormat() { FontFamily = "Times New Roman", FontSize = (50 * scaledHeight), WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f); 
+                CanvasTextLayout textLevelUp = new CanvasTextLayout(args.DrawingSession, "Level " + myLevel.ToString() + " Speed Increasing!", new CanvasTextFormat() { FontFamily = "Times New Roman", FontSize = 60 * scaledHeight, WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
+                args.DrawingSession.DrawTextLayout(textScore, (140 * scaledWidth), (50 * scaledHeight), Color.FromArgb(255, 255, 255, 255));//Draw score
+                args.DrawingSession.DrawTextLayout(textLevel, (80 * scaledWidth), (45 * scaledHeight), Color.FromArgb(255, 0, 0, 0));//Draw Level
 
                 if (levelUp) // Level Up Notifier
                 {
                     for(int i =0; i < 3; i++)
-                    args.DrawingSession.DrawTextLayout(textLevel, centerX - 250, centerY - 100, Color.FromArgb(255, 30, 25, 150));//Draw Level Up Sequence
+                    args.DrawingSession.DrawTextLayout(textLevelUp, centerX - 250, centerY - 100, Color.FromArgb(255, 30, 25, 150));//Draw Level Up Sequence
                 }
 
                 if (roundEnded == true) //Results Screen Drawing Events
