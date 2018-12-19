@@ -135,8 +135,6 @@ namespace UWPtest1
             else
                 levelUp = false;
 
-            if (countDown == -1)
-                roundEnded = true;
         }
 
         /// <summary>
