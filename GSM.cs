@@ -8,6 +8,9 @@ namespace UWPtest1
 {
     class GSM
     {
+        /// <summary>
+        /// Gamestate changes in response to events in the MainPage Code
+        /// </summary>
         public static void gsm()
         {
             if (MainPage.roundEnded == true && (MainPage.gameState == 1))

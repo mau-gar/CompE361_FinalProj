@@ -16,18 +16,18 @@ namespace UWPtest1
 {
     public sealed partial class MainPage : Page
     {
-        public static CanvasBitmap BG, startScreen, levelScreen, pauseScreen, scoreScreen, photon, enemy1, enemy2, enemyImage, tower, blood;
+        public static CanvasBitmap BG, startScreen, levelScreen, pauseScreen, scoreScreen, arrow, enemy1, enemy2, enemyImage, tower, blood;
         public static Rect bounds = ApplicationView.GetForCurrentView().VisibleBounds;
         public static float designWidth = 1920;
         public static float designHeight = 1080;
         public static float scaledWidth, scaledHeight;//Used to auto scale image when changing screen resolution 
         public static int gameState = 0;//startScreen set 0
         public static float myScore, myLevel = 1;
-        public static float accuracy, protonsFired, protonsHit;
+        public static float accuracy, arrowsFired, arrowsHit;
         public static bool levelUp = false;
 
         /*
-         * centerX and centerY define the position where the photons originate(origin)  
+         * centerX and centerY define the position where the arrows originate(origin)  
          * pointX and pointY are the positon of the fired pjojectile releative to the origin
          */
         public static float pointX, pointY, centerX, centerY;
@@ -42,9 +42,9 @@ namespace UWPtest1
         public static DispatcherTimer roundTimer = new DispatcherTimer();
         public static DispatcherTimer enemyTimer = new DispatcherTimer();//Enemy timer
 
-        //Photon(Projectile)
-        public static List<float> photonXPOS = new List<float>();//LL containing xcoordinate of tapped photon 
-        public static List<float> photonYPOS = new List<float>();
+        //Arrow(Projectile)
+        public static List<float> arrowXPOS = new List<float>();//LL containing xcoordinate of tapped arrow 
+        public static List<float> arrowYPOS = new List<float>();
 
         //Enemies(Stored in a LL)
         public static List<float> enemyXPOS = new List<float>();
@@ -58,12 +58,15 @@ namespace UWPtest1
         public Random enemyStartPos = new Random();//Random Starting Position for enemies TODO: Make enemies spawn randomly at specified locaitons 
 
         /*
-         * Represents the screen dimension percentage of where you tapped vs. where the photons originate
+         * Represents the screen dimension percentage of where you tapped vs. where the arrows originate
          * Higher Coordinate position = Higher percent = faster speed
          * Lower Coordinate position = Lower percent = slower speed
          */
         public static List<float> percent = new List<float>();
 
+        /// <summary>
+        /// Initializing Scaling Components, Centers, and Timer Components (Tick Events & Tick Intervals)
+        /// </summary>
         public MainPage()
         {
             this.InitializeComponent();
@@ -78,6 +81,11 @@ namespace UWPtest1
             enemyTimer.Interval = new TimeSpan(0, 0, 0, 0, enemyGenRand.Next(300, 3005-(int)myLevel*5));//enemy attack time between 300 a level-varying time for increased frequency the futher you go
         }
 
+        /// <summary>
+        /// Utilizing two random generators to cycle between corner positions and listing their direction for movemement as tick event.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void EnemyTimer_Tick(object sender, object e)
         {
             int enemySelect = enemyImageRand.Next(1, 3);//Cycles between enemies, in this case two enemies
@@ -109,6 +117,11 @@ namespace UWPtest1
             enemyTimer.Interval = new TimeSpan(0, 0, 0, 0, enemyGenRand.Next(300, 1700));//Spawn interval (1700)
         }
 
+        /// <summary>
+        /// Utilized to timer interval to create level up logic and end game definitively
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void RoundTimer_Tick(object sender, object e)
         {
             countDown -= 1;//Ticks down by one second 
@@ -121,8 +134,16 @@ namespace UWPtest1
             }
             else
                 levelUp = false;
+
+            if (countDown == -1)
+                roundEnded = true;
         }
 
+        /// <summary>
+        /// Retrieves and updates current window measurements to re-scale live 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Current_SizeChanged(object sender, WindowSizeChangedEventArgs e)
         {
             bounds = ApplicationView.GetForCurrentView().VisibleBounds;
@@ -132,6 +153,11 @@ namespace UWPtest1
             centerY = (float)bounds.Height / 2;
         }
 
+        /// <summary>
+        /// Helper Method for Current_SizeChanged
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="args"></param>
         private void GameCanvas_CreateResources(Microsoft.Graphics.Canvas.UI.Xaml.CanvasControl sender, Microsoft.Graphics.Canvas.UI.CanvasCreateResourcesEventArgs args)
         {
             args.TrackAsyncAction(CreateResourcesAsync(sender).AsAsyncAction());
@@ -143,12 +169,17 @@ namespace UWPtest1
             levelScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/Map.png"));
             pauseScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/PauseScreen.png"));
             scoreScreen = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/GameOver.png"));
-            photon = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/arrow.png"));
+            arrow = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/arrow.png"));
             enemy1 = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/enemyT.png"));
             enemy2 = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/enemyH.png"));
             blood = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:////Assets/Images/blood.png"));
         }
 
+        /// <summary>
+        /// Graphical Logic, creating visuals in responses to events, and incorporating edge collision logic 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="args"></param>
         private void GameCanvas_Draw(Microsoft.Graphics.Canvas.UI.Xaml.CanvasControl sender, Microsoft.Graphics.Canvas.UI.Xaml.CanvasDrawEventArgs args)
         {
             GSM.gsm(); //Call GSM on first draw
@@ -167,7 +198,7 @@ namespace UWPtest1
 
                 if (roundEnded == true) //Results Screen Drawing Events
                 {
-                    accuracy = protonsHit / protonsFired * 100;
+                    accuracy = arrowsHit / arrowsFired * 100;
                     CanvasTextLayout textAccuracy = new CanvasTextLayout(args.DrawingSession, "Accuracy: " + accuracy.ToString() + "% ", new CanvasTextFormat() { FontSize = 40 * scaledHeight, WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
                     CanvasTextLayout textFinalScore = new CanvasTextLayout(args.DrawingSession, "Final Score: " + myScore.ToString(), new CanvasTextFormat() { FontFamily = "", FontSize = 40 * scaledHeight, WordWrapping = CanvasWordWrapping.NoWrap }, 0.0f, 0.0f);
                     args.DrawingSession.DrawTextLayout(textFinalScore, (790 * scaledWidth), (645 * scaledHeight), Color.FromArgb(255, 150, 5, 5));
@@ -229,13 +260,13 @@ namespace UWPtest1
                     args.DrawingSession.DrawImage(Scaling.Img(enemyImage), enemyXPOS[j], enemyYPOS[j]);
                 }
 
-                //Display photon
-                for (int i = 0; i < photonXPOS.Count; i++)
+                //Display arrow
+                for (int i = 0; i < arrowXPOS.Count; i++)
                 {
                     //Linear Interpolation to calculate the projectile path between two known coordinates
-                    pointX = (centerX + (photonXPOS[i] - centerX) * percent[i]);
-                    pointY = (centerY + (photonYPOS[i] - centerY) * percent[i]);
-                    args.DrawingSession.DrawImage(Scaling.Img(photon), pointX - (19 * scaledWidth), pointY - (20 * scaledHeight));//19 and 20 come from half of the width and height of the photon.jpg
+                    pointX = (centerX + (arrowXPOS[i] - centerX) * percent[i]);
+                    pointY = (centerY + (arrowYPOS[i] - centerY) * percent[i]);
+                    args.DrawingSession.DrawImage(Scaling.Img(arrow), pointX - (19 * scaledWidth), pointY - (20 * scaledHeight));//19 and 20 come from half of the width and height of the arrow.jpg
 
                     percent[i] += (0.1f * scaledHeight);
 
@@ -257,20 +288,20 @@ namespace UWPtest1
                             enemyDirection.RemoveAt(j);
 
                             //Remove the current projectile off screen
-                            photonXPOS.RemoveAt(i);
-                            photonYPOS.RemoveAt(i);
+                            arrowXPOS.RemoveAt(i);
+                            arrowYPOS.RemoveAt(i);
                             percent.RemoveAt(i);
 
                             myScore += 100;
-                            protonsHit++;
+                            arrowsHit++;
                             break;
                         }
                     }
 
-                    if (pointY < 0f)//If photon trails off screen, remove the photon 
+                    if (pointY < 0f)//If arrow trails off screen, remove the arrow 
                     {
-                        photonXPOS.RemoveAt(i);
-                        photonYPOS.RemoveAt(i);
+                        arrowXPOS.RemoveAt(i);
+                        arrowYPOS.RemoveAt(i);
                         percent.RemoveAt(i);
                     }
                 }
@@ -279,6 +310,11 @@ namespace UWPtest1
             GameCanvas.Invalidate();
         }
 
+        /// <summary>
+        /// Click Event Logic Response, Button Mapping, and varying functionality depending on Game State
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void GameCanvas_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
         {
             var tapPos = e.GetPosition(GameCanvas);
@@ -298,8 +334,8 @@ namespace UWPtest1
 
                     myScore = 0;
                     myLevel = 1;
-                    protonsFired = 0;
-                    protonsHit = 0;
+                    arrowsFired = 0;
+                    arrowsHit = 0;
 
                     enemyTimer.Stop();
                     enemyXPOS.Clear();
@@ -313,18 +349,17 @@ namespace UWPtest1
                 {
                     gameState = 2;
 
-                    roundEnded = true;
                     enemyXPOS.Clear();
                     enemyYPOS.Clear();
                     enemyTimer.Stop();
                     enemyDirection.Clear();
                     enemyImageLL.Clear();
                 }
-                    //When screen is tapped add X/Y position of tap to photon list
-                    photonXPOS.Add((float)e.GetPosition(GameCanvas).X);
-                    photonYPOS.Add((float)e.GetPosition(GameCanvas).Y);
+                    //When screen is tapped add X/Y position of tap to arrow list
+                    arrowXPOS.Add((float)e.GetPosition(GameCanvas).X);
+                    arrowYPOS.Add((float)e.GetPosition(GameCanvas).Y);
                     percent.Add(0f);//Start at 0%
-                    protonsFired++;
+                    arrowsFired++;
                     
             }
             else if (gameState == 2) // Pause Screen
@@ -345,8 +380,8 @@ namespace UWPtest1
  
                         myScore = 0;
                         myLevel = 1;
-                        protonsFired = 0;
-                        protonsHit = 0;
+                        arrowsFired = 0;
+                        arrowsHit = 0;
                         countDown = int.MaxValue - 8;
                         roundTimer.Start();
                         enemyTimer.Start();

@@ -8,6 +8,9 @@ namespace UWPtest1.Class
 {
     class Scaling
     {
+        /// <summary>
+        /// Creating Auto-Scaling by generating a ratio from the current window bounds to the design specifications
+        /// </summary>
         public static void SetScale()
         {
             //Display Info
